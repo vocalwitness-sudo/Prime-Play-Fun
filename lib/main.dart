@@ -5,7 +5,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/parallax.dart';
 import 'package:flame/collisions.dart'; // FIXED: Added missing import for hitboxes
-import 'package:flame_audio/flame_audio.dart';
+//import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -260,7 +260,8 @@ class LobbyScreen extends ConsumerWidget {
 
 // ================== GAME CORE ==================
 class EndlessRunnerGame extends FlameGame
-    with TapCallbacks, HasCollisionDetection { // FIXED: Replaced TapDetector with TapCallbacks
+    with TapCallbacks, HasCollisionDetection {
+  // FIXED: Replaced TapDetector with TapCallbacks
   final VoidCallback onGameOver;
 
   EndlessRunnerGame({required this.onGameOver});
@@ -277,7 +278,7 @@ class EndlessRunnerGame extends FlameGame
 
   @override
   Future<void> onLoad() async {
-    await FlameAudio.bgm.initialize();
+    //await FlameAudio.bgm.initialize();
 
     add(ParallaxBackground3D());
     add(Ground());
@@ -333,7 +334,8 @@ class EndlessRunnerGame extends FlameGame
   }
 
   @override
-  void onTapDown(TapDownEvent event) { // FIXED: Swapped to modern signature from TapCallbacks
+  void onTapDown(TapDownEvent event) {
+    // FIXED: Swapped to modern signature from TapCallbacks
     super.onTapDown(event);
     if (!isGameOverFlag) player.jump();
   }
@@ -366,7 +368,7 @@ class EndlessRunnerGame extends FlameGame
 
   @override
   void onRemove() {
-    FlameAudio.bgm.stop();
+    //FlameAudio.bgm.stop();
     super.onRemove();
   }
 }
@@ -401,7 +403,8 @@ class ParallaxBackground3D extends ParallaxComponent<EndlessRunnerGame> {
   }
 }
 
-class Ground extends PositionComponent with HasGameReference<EndlessRunnerGame> {
+class Ground extends PositionComponent
+    with HasGameReference<EndlessRunnerGame> {
   @override
   Future<void> onLoad() async {
     size = Vector2(game.size.x, 120);
@@ -444,7 +447,8 @@ class Player extends SpriteAnimationComponent
   }
 
   @override
-  void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) { // FIXED: Renamed points -> intersectionPoints
+  void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
+    // FIXED: Renamed points -> intersectionPoints
     super.onCollision(intersectionPoints, other);
     if (other is Obstacle || other is FlyingObstacle) game.gameOver();
     if (other is Collectible) {
