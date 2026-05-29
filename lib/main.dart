@@ -7,7 +7,6 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/parallax.dart';
 import 'package:flame/collisions.dart';
-//import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,7 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // This line turns on Firebase globally using your new options!
+  // This line turns on Firebase globally using your options!
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   final prefs = await SharedPreferences.getInstance();
@@ -280,6 +279,7 @@ class EndlessRunnerGame extends FlameGame
   int coins = 0;
   double gameSpeed = 230;
   bool isGameOverFlag = false;
+  final double groundHeight = 120.0;
   final Random random = Random();
 
   @override
@@ -344,7 +344,7 @@ class EndlessRunnerGame extends FlameGame
     score += (dt * 25).toInt();
     gameSpeed += dt * 10;
 
-    scoreText.text = "Workspace Score: $score";
+    scoreText.text = "Score: $score";
   }
 
   @override
@@ -385,7 +385,6 @@ class ParallaxBackground3D extends ParallaxComponent<EndlessRunnerGame> {
   @override
   Future<void> onLoad() async {
     try {
-      // Safe placeholder so the app doesn't crash on startup
       parallax = await game.loadParallax([], baseVelocity: Vector2(0, 0));
     } catch (_) {}
   }
@@ -395,7 +394,7 @@ class ParallaxBackground3D extends ParallaxComponent<EndlessRunnerGame> {
     if (parallax == null) {
       canvas.drawRect(
         Rect.fromLTWH(0, 0, game.size.x, game.size.y),
-        Paint()..color = const Color(0xFF87CEEB),
+        Paint()..color = const Color(0xFF1A1B2F),
       );
     } else {
       super.render(canvas);
@@ -407,20 +406,28 @@ class Ground extends PositionComponent
     with HasGameReference<EndlessRunnerGame> {
   @override
   Future<void> onLoad() async {
-    size = Vector2(game.size.x, 120);
-    position = Vector2(0, game.size.y - 120);
+    size = Vector2(game.size.x, game.groundHeight);
+    position = Vector2(0, game.size.y - game.groundHeight);
   }
 
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
-    this.size = Vector2(size.x, 120);
-    position = Vector2(0, size.y - 120);
+    this.size = Vector2(size.x, game.groundHeight);
+    position = Vector2(0, size.y - game.groundHeight);
   }
 
   @override
-  void render(Canvas canvas) =>
-      canvas.drawRect(size.toRect(), Paint()..color = const Color(0xFF4CAF50));
+  void render(Canvas canvas) {
+    canvas.drawRect(size.toRect(), Paint()..color = const Color(0xFF2C3E50));
+
+    final railPaint = Paint()
+      ..color = Colors.amber.withValues(alpha: 0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
+    canvas.drawLine(const Offset(0, 10), Offset(size.x, 10), railPaint);
+    canvas.drawLine(const Offset(0, 40), Offset(size.x, 40), railPaint);
+  }
 }
 
 class Player extends SpriteAnimationComponent
@@ -430,7 +437,10 @@ class Player extends SpriteAnimationComponent
   final double jumpForce = -590;
   bool isOnGround = true;
 
-  Player() : super(size: Vector2(72, 72));
+  double _runningTimer = 0;
+  double _rotationAngle = 0;
+
+  Player() : super(size: Vector2(64, 64));
 
   @override
   Future<void> onLoad() async {
@@ -440,9 +450,10 @@ class Player extends SpriteAnimationComponent
   }
 
   void resetPlayerPosition() {
-    position = Vector2(80, game.size.y - 120 - size.y);
+    position = Vector2(80, game.size.y - game.groundHeight - size.y);
     velocityY = 0;
     isOnGround = true;
+    _rotationAngle = 0;
   }
 
   void jump() {
@@ -458,12 +469,65 @@ class Player extends SpriteAnimationComponent
     velocityY += gravity * dt;
     position.y += velocityY * dt;
 
-    double groundY = game.size.y - 120 - size.y;
+    double groundY = game.size.y - game.groundHeight - size.y;
     if (position.y >= groundY) {
       position.y = groundY;
       velocityY = 0;
       isOnGround = true;
+      _rotationAngle = 0;
     }
+
+    if (isOnGround) {
+      _runningTimer += dt * 15;
+    } else {
+      _rotationAngle += dt * 8;
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+
+    canvas.save();
+    canvas.translate(size.x / 2, size.y / 2);
+
+    if (isOnGround) {
+      double squashX = 1.0 + sin(_runningTimer) * 0.12;
+      double stretchY = 1.0 - sin(_runningTimer) * 0.08;
+      canvas.scale(squashX, stretchY);
+    } else {
+      canvas.rotate(_rotationAngle);
+    }
+
+    final bodyPaint = Paint()
+      ..shader = const LinearGradient(
+        colors: [Colors.pinkAccent, Colors.purpleAccent],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(-size.x / 2, -size.y / 2, size.x, size.y));
+
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(-size.x / 2, -size.y / 2, size.x, size.y),
+      const Radius.circular(16),
+    );
+    canvas.drawRRect(rect, bodyPaint);
+
+    final detailPaint = Paint()..color = Colors.white;
+    if (isOnGround) {
+      double footOffset = sin(_runningTimer) * 10;
+      canvas.drawCircle(
+        Offset(-12, (size.y / 2) - 6 + footOffset.abs()),
+        6,
+        detailPaint,
+      );
+      canvas.drawCircle(
+        Offset(12, (size.y / 2) - 6 + (-footOffset).abs()),
+        6,
+        detailPaint,
+      );
+    }
+
+    canvas.restore();
   }
 
   @override
@@ -471,8 +535,8 @@ class Player extends SpriteAnimationComponent
     super.onCollision(intersectionPoints, other);
     if (other is Obstacle || other is FlyingObstacle) game.gameOver();
     if (other is Collectible) {
-      if (!other.isRemoving) {
-        other.removeFromParent();
+      if (!other.isRemoving && !other.isPickedUp) {
+        other.triggerPickupEffects();
         game.collectCoin();
       }
     }
@@ -482,29 +546,53 @@ class Player extends SpriteAnimationComponent
 class Obstacle extends PositionComponent
     with CollisionCallbacks, HasGameReference<EndlessRunnerGame> {
   final double speed;
+  double _lightFlashTimer = 0;
+
   Obstacle(this.speed) : super(size: Vector2(52, 78));
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    position = Vector2(game.size.x, game.size.y - 120 - size.y);
+    position = Vector2(game.size.x, game.size.y - game.groundHeight - size.y);
     add(RectangleHitbox());
   }
 
   @override
   void update(double dt) {
+    super.update(dt);
     position.x -= speed * dt;
+    _lightFlashTimer += dt * 10;
     if (position.x < -60) removeFromParent();
   }
 
   @override
-  void render(Canvas canvas) =>
-      canvas.drawRect(size.toRect(), Paint()..color = Colors.red[700]!);
+  void render(Canvas canvas) {
+    final rect = size.toRect();
+    canvas.drawRect(rect, Paint()..color = const Color(0xFFD32F2F));
+
+    final stripePaint = Paint()
+      ..color = Colors.amber
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6;
+
+    for (double i = 0; i < size.x; i += 16) {
+      canvas.drawLine(Offset(i, 0), Offset(i + 10, size.y), stripePaint);
+    }
+
+    bool flash = sin(_lightFlashTimer) > 0;
+    canvas.drawCircle(
+      Offset(size.x / 2, 8),
+      10,
+      Paint()..color = flash ? Colors.cyanAccent : Colors.cyan[900]!,
+    );
+  }
 }
 
 class FlyingObstacle extends PositionComponent
     with CollisionCallbacks, HasGameReference<EndlessRunnerGame> {
   final double speed;
+  double _wingFlapTimer = 0;
+
   FlyingObstacle(this.speed) : super(size: Vector2(58, 48));
 
   @override
@@ -512,49 +600,141 @@ class FlyingObstacle extends PositionComponent
     await super.onLoad();
     position = Vector2(
       game.size.x,
-      (game.size.y - 240) + Random().nextDouble() * 90,
+      (game.size.y - game.groundHeight - 130) + Random().nextDouble() * 70,
     );
     add(RectangleHitbox());
   }
 
   @override
   void update(double dt) {
+    super.update(dt);
     position.x -= speed * dt * 1.15;
+    _wingFlapTimer += dt * 14;
     if (position.x < -60) removeFromParent();
   }
 
   @override
-  void render(Canvas canvas) =>
-      canvas.drawRect(size.toRect(), Paint()..color = Colors.deepPurple);
+  void render(Canvas canvas) {
+    canvas.save();
+    canvas.translate(size.x / 2, size.y / 2);
+
+    double wingFlap = sin(_wingFlapTimer) * 0.6;
+
+    canvas.drawOval(
+      Rect.fromLTWH(-20, -10, 40, 20),
+      Paint()..color = const Color(0xFF1A237E),
+    );
+    canvas.drawCircle(Offset.zero, 8, Paint()..color = Colors.redAccent);
+
+    canvas.save();
+    canvas.scale(1.0, wingFlap);
+    final wingPaint = Paint()
+      ..color = Colors.deepPurpleAccent
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
+    canvas.drawOval(Rect.fromLTWH(-35, -6, 20, 12), wingPaint);
+    canvas.drawOval(Rect.fromLTWH(15, -6, 20, 12), wingPaint);
+    canvas.restore();
+
+    canvas.restore();
+  }
 }
 
 class Collectible extends PositionComponent
     with CollisionCallbacks, HasGameReference<EndlessRunnerGame> {
   final double speed;
-  Collectible(this.speed) : super(size: Vector2(42, 42));
+  double _bounceTimer = 0;
+  bool isPickedUp = false;
+
+  Collectible(this.speed) : super(size: Vector2(40, 40));
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     position = Vector2(
       game.size.x,
-      (game.size.y - 260) + Random().nextDouble() * 120,
+      (game.size.y - game.groundHeight - 160) + Random().nextDouble() * 100,
     );
     add(CircleHitbox());
   }
 
   @override
   void update(double dt) {
+    super.update(dt);
+
+    if (isPickedUp) {
+      position.y -= dt * 400;
+      scale += Vector2.all(dt * 2.5);
+      if (scale.x > 1.8) removeFromParent();
+      return;
+    }
+
     position.x -= speed * dt * 0.9;
+    _bounceTimer += dt * 4;
+    position.y += sin(_bounceTimer) * 0.5;
+
     if (position.x < -50) removeFromParent();
   }
 
   @override
-  void render(Canvas canvas) => canvas.drawCircle(
-    Offset(size.x / 2, size.y / 2),
-    size.x / 2,
-    Paint()..color = Colors.amber,
-  );
+  void render(Canvas canvas) {
+    final center = Offset(size.x / 2, size.y / 2);
+    final radius = size.x / 2;
+
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(cos(_bounceTimer * 2).abs().clamp(0.2, 1.0), 1.0);
+
+    final itemRect = Rect.fromLTWH(-radius, -radius, size.x, size.y);
+
+    if (isPickedUp) {
+      canvas.drawCircle(
+        Offset.zero,
+        radius * 1.3,
+        Paint()..color = Colors.white.withValues(alpha: 0.4),
+      );
+    }
+
+    canvas.drawCircle(
+      Offset.zero,
+      radius,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Colors.yellow, Colors.orange, Colors.amber],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ).createShader(itemRect),
+    );
+
+    final path = Path();
+    path.moveTo(0, -radius * 0.6);
+    path.lineTo(radius * 0.2, -radius * 0.2);
+    path.lineTo(radius * 0.6, -radius * 0.2);
+    path.lineTo(radius * 0.3, radius * 0.1);
+    path.lineTo(radius * 0.4, radius * 0.5);
+    path.lineTo(0, radius * 0.3);
+    path.lineTo(-radius * 0.4, radius * 0.5);
+    path.lineTo(-radius * 0.3, radius * 0.1);
+    path.lineTo(-radius * 0.6, -radius * 0.2);
+    path.lineTo(-radius * 0.2, -radius * 0.2);
+    path.close();
+    canvas.drawPath(path, Paint()..color = Colors.white.withValues(alpha: 0.5));
+
+    canvas.drawCircle(
+      Offset.zero,
+      radius,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.7)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
+    );
+
+    canvas.restore();
+  }
+
+  void triggerPickupEffects() {
+    isPickedUp = true;
+  }
 }
 
 // ================== RUNNER SCREEN ==================

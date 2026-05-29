@@ -1,1 +1,36 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"prime-play-fun","appId":"1:10490607699:android:923c003f0b78e1f042aea6","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"prime-play-fun","configurations":{"android":"1:10490607699:android:923c003f0b78e1f042aea6","web":"1:10490607699:web:dd28743da6bbd7b142aea6"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "prime-play-fun",
+          "appId": "1:10490607699:android:923c003f0b78e1f042aea6",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "prime-play-fun",
+          "configurations": {
+            "android": "1:10490607699:android:923c003f0b78e1f042aea6",
+            "web": "1:10490607699:web:dd28743da6bbd7b142aea6"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
