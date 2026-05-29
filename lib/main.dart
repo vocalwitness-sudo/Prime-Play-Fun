@@ -1,10 +1,12 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/parallax.dart';
-import 'package:flame/collisions.dart'; // FIXED: Added missing import for hitboxes
+import 'package:flame/collisions.dart';
 //import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +14,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // This line turns on Firebase globally using your new options!
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   final prefs = await SharedPreferences.getInstance();
 
   runApp(
@@ -261,7 +267,6 @@ class LobbyScreen extends ConsumerWidget {
 // ================== GAME CORE ==================
 class EndlessRunnerGame extends FlameGame
     with TapCallbacks, HasCollisionDetection {
-  // FIXED: Replaced TapDetector with TapCallbacks
   final VoidCallback onGameOver;
 
   EndlessRunnerGame({required this.onGameOver});
@@ -269,6 +274,7 @@ class EndlessRunnerGame extends FlameGame
   late Player player;
   late TextComponent scoreText;
   late TextComponent coinText;
+  late Ground ground;
 
   int score = 0;
   int coins = 0;
@@ -278,10 +284,10 @@ class EndlessRunnerGame extends FlameGame
 
   @override
   Future<void> onLoad() async {
-    //await FlameAudio.bgm.initialize();
-
     add(ParallaxBackground3D());
-    add(Ground());
+
+    ground = Ground();
+    add(ground);
 
     player = Player();
     add(player);
@@ -301,7 +307,7 @@ class EndlessRunnerGame extends FlameGame
 
     coinText = TextComponent(
       text: 'Coins: 0',
-      position: Vector2(size.x - 160, 16),
+      position: Vector2(16, 50),
       textRenderer: TextPaint(
         style: const TextStyle(
           fontSize: 28,
@@ -313,6 +319,14 @@ class EndlessRunnerGame extends FlameGame
     add(coinText);
 
     add(TimerComponent(period: 1.25, repeat: true, onTick: _spawnObjects));
+  }
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    if (isLoaded) {
+      coinText.position = Vector2(size.x - 160, 16);
+    }
   }
 
   void _spawnObjects() {
@@ -330,12 +344,11 @@ class EndlessRunnerGame extends FlameGame
     score += (dt * 25).toInt();
     gameSpeed += dt * 10;
 
-    scoreText.text = "Score: $score";
+    scoreText.text = "Workspace Score: $score";
   }
 
   @override
   void onTapDown(TapDownEvent event) {
-    // FIXED: Swapped to modern signature from TapCallbacks
     super.onTapDown(event);
     if (!isGameOverFlag) player.jump();
   }
@@ -363,30 +376,17 @@ class EndlessRunnerGame extends FlameGame
         c.removeFromParent();
       }
     });
-    player.position = Vector2(80, 220);
-  }
-
-  @override
-  void onRemove() {
-    //FlameAudio.bgm.stop();
-    super.onRemove();
+    player.resetPlayerPosition();
   }
 }
 
 // ================== COMPONENTS ==================
-
 class ParallaxBackground3D extends ParallaxComponent<EndlessRunnerGame> {
   @override
   Future<void> onLoad() async {
     try {
-      parallax = await game.loadParallax(
-        [
-          ParallaxImageData('bg_distant_mountains.png'),
-          ParallaxImageData('bg_midground_trees.png'),
-        ],
-        baseVelocity: Vector2(20, 0),
-        velocityMultiplierDelta: Vector2(1.8, 0),
-      );
+      // Safe placeholder so the app doesn't crash on startup
+      parallax = await game.loadParallax([], baseVelocity: Vector2(0, 0));
     } catch (_) {}
   }
 
@@ -412,6 +412,13 @@ class Ground extends PositionComponent
   }
 
   @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    this.size = Vector2(size.x, 120);
+    position = Vector2(0, size.y - 120);
+  }
+
+  @override
   void render(Canvas canvas) =>
       canvas.drawRect(size.toRect(), Paint()..color = const Color(0xFF4CAF50));
 }
@@ -423,7 +430,20 @@ class Player extends SpriteAnimationComponent
   final double jumpForce = -590;
   bool isOnGround = true;
 
-  Player() : super(size: Vector2(72, 72), position: Vector2(80, 220));
+  Player() : super(size: Vector2(72, 72));
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    resetPlayerPosition();
+    add(RectangleHitbox());
+  }
+
+  void resetPlayerPosition() {
+    position = Vector2(80, game.size.y - 120 - size.y);
+    velocityY = 0;
+    isOnGround = true;
+  }
 
   void jump() {
     if (isOnGround) {
@@ -448,7 +468,6 @@ class Player extends SpriteAnimationComponent
 
   @override
   void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
-    // FIXED: Renamed points -> intersectionPoints
     super.onCollision(intersectionPoints, other);
     if (other is Obstacle || other is FlyingObstacle) game.gameOver();
     if (other is Collectible) {
@@ -457,12 +476,6 @@ class Player extends SpriteAnimationComponent
         game.collectCoin();
       }
     }
-  }
-
-  @override
-  Future<void> onLoad() async {
-    await super.onLoad();
-    add(RectangleHitbox());
   }
 }
 

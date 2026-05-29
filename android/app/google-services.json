@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "10490607699",
+    "project_id": "prime-play-fun",
+    "storage_bucket": "prime-play-fun.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:10490607699:android:923c003f0b78e1f042aea6",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "10490607699-t23gvg7an02pko35kv3vs15u6v84650h.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDUx94pK4T8759B3Am2xboUsgbBOgmGbFE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "10490607699-t23gvg7an02pko35kv3vs15u6v84650h.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
